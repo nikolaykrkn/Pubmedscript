@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 # This script scans an XML-results file exported from pubmed.com
 # The output_run1 is a xls file
 # The script folder must contain:
@@ -22,94 +25,171 @@ from Pubmed_logs import logline
 
 p = inflect.engine()
 
+def pl(word):
+    return word + "|" + p.plural(word)
+
+
+notnp = [pl('nucleoside[ ]?phosphorylase'), pl('nucleotide[ ]?pair'), pl('Nucleotide[ ]?Protein'), pl('neuropeptide'), pl('neuropathy'),
+         pl('Neuro[ ]?Pathology'), pl('NeuroPathology'), 'neuropsychiatric', 'Nickel[ ]?Plated', pl('nitrogen[ ]?phosphorus'),
+         pl('nitroprusside'), pl('nonylphenol'), pl('nonapeptide'), pl('nonhistone[ ]?protein'), pl('nosocomial[ ]?pneumonia'),
+         pl('N[ ]?protein'), pl('nasal[ ]?polyp'), pl('nasal[ ]?pack'), pl('nasopharyngeal'), 'No[ ]?Phosphate', 'No[ ]?Phosphorus',
+         pl('natriuretic[ ]?peptide'), 'Normal[ ]?Probability', 'Neptunium', pl('nonylphenol')]
+
+notnpregex = r'(' + r'|'.join(notnp) + r') \(np[s]?\)\b'
+
 singularKeys = {
-                'MQ2_1': ["toxicity", "safety", "health", "exposure", "human", "people", "worker", "employee",
-                          "man", "woman", "girls", "boy", "child", "infant", "adult", "consumer", "patient",
-                          "volunteer", "clinical", "clinically", "cohort", "resident", "biomedical", "medical",
-                          "public", "occupational", "cytotoxic", "cytotoxicity", "cytotoxin", "cytotoxins",
-                          "teratogenicity", "teratogen", "teratogenic", "carcinogen", "carcinogenic",
-                          "carcinogenicity", "neurotoxic", "neurotoxicity", "neurotoxin", "nephrotoxicity",
-                          "nephrotoxic", "nephrotoxin", "hepatotoxicity", "hepatotoxin", "hepatotoxic",
-                          "genotoxicity", "genotoxic", "genotoxin", "cancer", "review", "reviewed",
-                          "NOAEL", "LOAEL", "NOEL", "LOEL", "TDI", "NOEC", "threshold limit value",
-                           "TLV", "time-weighted average", "time weighted average", "TWA",
-                          "provisional tolerable weekly intake", "PTWI", "NOAEC", "occupational exposure limit",
-                           "OEL", "PEL", "effect level", "daily intake", "effective dose", "tolerable dose",
-                           "lethal dose", "threshold dose", "effect concentration", "inhibitory concentration",
-                          "permissible exposure level", "ground-level concentration", "ground level concentration",
-                          "GLC",
-                         "(LC|EC|LD|ED|IC)[ -]?\\(?(50|₅₀)\\)?"],
+                'MQ2_1': [pl('toxicity'), 'toxic', pl('safety'), 'health', pl('exposure'), pl('human'),
+                          'people', pl('worker'), pl('employee'), pl('man'), pl('woman'), pl('girl'),
+                          pl('boy'), pl('child'), pl('infant'), pl('adult'), pl('consumer'), pl('patient'),
+                          pl('volunteer'), 'clinical', 'clinically', pl('cohort'), pl('resident'),
+                          'biomedical', 'medical', 'public', 'occupational', 'cytotoxic', pl('cytotoxicity'),
+                          pl('cytotoxin'), pl('teratogenicity'), pl('teratogen'), 'teratogenic',
+                          pl('carcinogen'), 'carcinogenic', pl('carcinogenicity'), 'neurotoxic', pl('neurotoxicity'),
+                          pl('neurotoxin'), pl('nephrotoxicity'), 'nephrotoxic', pl('nephrotoxin'),
+                          pl('hepatotoxicity'), pl('hepatotoxin'), 'hepatotoxic', pl('genotoxicity'),
+                          'genotoxic', pl('genotoxin'), pl('cancer'), pl('review'), 'reviewed', 'NOAEL',
+                          'NOAELs', 'LOAEL', 'LOAELs', 'NOEL', 'NOELs', 'LOEL', 'LOELs', 'TDI', 'TDIs',
+                          'NOEC', 'NOECs', pl('threshold limit value'), 'TLV', 'TLVs', pl('time[-]?weighted average'),
+                          'TWA', 'TWAs', pl('provisional tolerable weekly intake'), 'PTWI', 'PTWIs', 'NOAEC', 'NOAECs',
+                          pl('occupational exposure limit'), 'OEL', 'OELs', 'PEL', 'PELs', pl('effect level'),
+                          pl('daily intake'), pl('effective dose'), pl('tolerable dose'), pl('lethal dose'),
+                          pl('threshold dose'), pl('effect concentration'), pl('inhibitory concentration'),
+                          pl('permissible exposure level'), pl('ground[-]?level concentration'), 'GLC', 'GLCs',
+                          'bioaccumulation', 'bio-accumulation', 'bio-accumulative', 'bioaccumulative',
+                          'accumulation', 'intake', 'consumption',"(?:lc|ec|ld|ed|ic)[ -]?\\(?(?:50|₅₀)\\)?"],
 
-                'MQ3_1':["environment", "impact", "manufacturing", "consumption", "recycling", "disposal", "environmental",
-                         "ecotoxicology", "ecotoxicological", "ecotoxicity", "ecological", "ecology", "sustainable",
-                         "sustainably", "sustainability", "ecosystem", "trophic", "aquatic", "soil", "troposphere",
-                         "tropospheric", "atmospheric", "river", "freshwater", "marine", "waste", "waste-water", "wastewater",
-                         "biodiversity", "bio-indicator", "bioindicator", "biomonitor", "bio-monitor", "recovery", "recovered",
-                         "recycled", "recycling", "recycle", "recyclable", "disposal", "life-cycle", "life cycle", "biodegradable",
-                         "biodegradation", "biodegrade", "bio-degradable", "bio-degradation", "bio-degrade", "decompose",
-                         "decomposed", "decomposition", "consumption"],
+                'MQ3_1-A': ["ecotoxicology", "ecotoxicological", pl("ecotoxicity"), pl("toxicity"), "pollution",
+                            pl("pollutant"), pl("exposure"), pl("sustainability"), "sustainable", "sustainably"],
 
-                'MQ4_1':["nanoparticle", "nanomaterial", "nanoscale", "nanosized", "nano", "ultrafine", "combustion",
-                         "coal-derived", "coal-fired", "engine", "motor[ ]vehicle", "airborne", "incidental", "aerosols",
-                         "naturally[ ]occurring", "dust", "mining", "raw[ ]material", "mineralogy", "ash"],
+                'MQ3_1-B': ["accumulation", "aquatic", "atmosphere", "atmospheric", "bio-accumulation",
+                            "bio-degradable", "bio-degradation", "bio-degrade", "bio-indicator", "bio[ -]?monitor",
+                            "bio[ -]?monitoring", "bioaccumulation", "biodegradable", "biodegradation", "biodegrade",
+                            "biodiversity", "bioindicator", "consumption", "contamination", "decontamination",
+                            pl("discharge"), pl("discharged"), "disposal", "ecological", "ecology", "ecosystem",
+                            pl("emission"), "environmental", "freshwater", "fresh-water", "indicator species",
+                            "life[ -]cycle", "marine", "model system", "recovered", "recovery", "recyclable",
+                            "recycle", "recycled", "recycling", pl("resource"), pl("river"), pl("ocean"),
+                            pl("sea"), pl("lake"), pl("soil"), "trophic", "troposphere", "tropospheric", pl("waste"),
+                            pl("waste water"), pl("waste-water"), pl("wastewater")],
 
-                'HUM': ["human", "people", "man", "mens", "woman", "girl", "boy", "child" "infant", "adult", "cohort"
-                        "consumer", "clinical", "patient", "worker", "volunteer", "health", "employee", "resident",
-                        "biomedical", "medical", "occupational", "workforce", "workplace", "public", "clinically"],
+                'MQ4_1-A': [pl('nanoparticle'), pl('nanomaterial'), 'nanoscale', 'nano[ ]?size',
+                            'nano[ ]?sized', 'ultrafine', pl('dust'), 'aerosol', pl('np'), 'nano\w+?',
+                            'nanometric', pl('nanotube'), 'fly ash', 'particle[ ]size', 'particle diameter',
+                            'size distribution'],
 
-                'LVL': ["NOAEL", "no observed adverse effect level", "no observable adverse effect level", "LOAEL",
-                        "lowest observed adverse effect level", "lowest observable adverse effect level", "NOEL",
-                        "no observed effect level", "no observable effect level", "LOEL", "lowest observed effect level",
-                        "lowest observable effect level", "TDI", "tolerable daily intake", "lethal dose", "tolerable dose",
-                        "threshold dose",  "effective dose", "threshold limit value", "TLV", "NOEC",
-                        "no observed effect concentration", "no observable effect concentration", "inhibitory concentration",
-                        "time-weighted average", "time weighted average", "TWA", "provisional tolerable weekly intake",
-                        "PTWI", "no observable adverse effect concentration", "no observed adverse effect concentration",
-                        "NOAEC", "permissible exposure level", "PEL", "occupational exposure limit", "OEL",
-                        "Acceptable Daily Intake", "ADI", "ground-level concentration", "ground level concentration",
-                        "GLC", "GLCs", "(LC|EC|LD|ED|IC)[ -]?\\(?(50|₅₀)\\)?"],
+                'MQ4_1-B':['incidental', 'naturally occurring', 'anthropogenic', 'natural', pl('emission'), 'emitted',
+                           pl('source'), 'disposal', 'anthropogenic', pl('by-product'), pl('by-products'),
+                           pl('byproduct')],
 
-                #'REV': ["review", "reviewed"],
+                'HUM': [pl('human'), 'people', pl('man'), 'mens', 'men’s', 'man’s',  pl('woman'), "woman's",
+                        'women’s', pl('girl'), pl('boy'), pl('child'), pl('infant'), pl('adult'), pl('cohort'),
+                        pl('consumer'), 'clinical', pl('patient'), "patient's", pl('worker'), pl('volunteer'),
+                        'health', pl('employee'), pl('resident'), 'occupational', 'workforce', pl('workplace'),
+                        'clinically'],
 
-                'CTX': ["cytotoxic", "cytotoxicity", "cytotoxin", "teratogen", "teratogenic", "teratogenicity",
-                        "teratogenicities", "carcinogen", "carcinogenic", "carcinogenicity", "neurotoxin",
-                        "neurotoxic", "neurotoxicity", "nephrotoxicity", "nephrotoxin", "nephrotoxic", "hepatotoxicity",
-                        "hepatotoxin", "hepatotoxic", "genotoxic", "genotoxicity", "genotoxin", "cancer"],
+                'LVL': [pl('noael'), pl('no observed adverse effect level'), pl('no observable adverse effect level'),
+                        pl('loael'), pl('lowest observed adverse effect level'),
+                        pl('lowest observable adverse effect level'), pl('noel'), pl('no observed effect level'),
+                        pl('no observable effect level'), pl('loel'), pl('lowest observed effect level'),
+                        pl('lowest observable effect level'), pl('tdi'), pl('tolerable daily intake'),
+                        pl('lethal dose'), pl('tolerable dose'), pl('threshold dose'), pl('effective dose'),
+                        pl('threshold limit value'), pl('tlv'), pl('noec'), pl('no observed effect concentration'),
+                        pl('no observable effect concentration'), pl('inhibitory concentration'),
+                        pl('time[ -]?weighted average'), pl('twa'), pl('provisional tolerable weekly intake'),
+                        pl('ptwi'), pl('no observable adverse effect concentration'),
+                        pl('no observed adverse effect concentration'), pl('noaec'),
+                        pl('permissible exposure level'), pl('pel'), pl('occupational exposure limit'),
+                        pl('oel'), pl('acceptable daily intake'), pl('adi'), pl('ground[ -]?level concentration'),
+                        pl('glc'), "(lc|ec|ld|ed|ic)[ -]?\\(?(50|₅₀)\\)?"
+                        ],
 
-                # 'ERM' :["ingest", "ingestion", "oral", "orally", "consumption", "consumed", "consume", "intake",
-                #        "metabolism", "metabolic", "metabolise", "epidermis", "epidermal", "epithelial", "epithelium", "Dermal",
-                #        "Dermis", "skin", "inhale", "inhaled", "inhalation", "dust", "vapour", "vapourised", "aerosoli[sz]ed",
-                #        "aerosol", "atmospheric", "pulmonary", "bioaccumulation", "bioaccumulative", "uptake", "excretion",
-                #        "bio[-]?available", "bioavailability", "synergist", "synergistic", "agonist", "agonistic",
-                #        "antagonists", "antagonistic", "blood", "brain", "cortex", "liver", "plasma", "respiratory", "serum"],
+                'CTX': ['cytotoxic', pl('cytotoxicity'), pl('cytotoxin'), pl('teratogen'), 'teratogenic',
+                        pl('teratogenicity'), pl('carcinogen'), 'carcinogenic', pl('carcinogenicity'), pl('neurotoxin'),
+                        'neurotoxic', pl('neurotoxicity'), pl('nephrotoxicity'), pl('nephrotoxin'), 'nephrotoxic',
+                        pl('hepatotoxicity'), pl('hepatotoxin'), pl('hepatotoxic'), 'genotoxic', pl('genotoxicity'),
+                        pl('genotoxin'), pl('cancer'), pl('neuro[-]?developmental toxicity')],
+
+                'TOX-A': [pl('exposure'),'health', pl('safety'), 'toxic', pl('toxicity')],
+                'TOX-B': ['accumulation', pl('daily intake'),  "(lc|ec|ld|ed|ic)[ -]?\\(?(50|₅₀)\\)?[s]?",
+                          pl('effect concentration'), pl("effect level"), pl("effective dose"),
+                          pl('ground level concentration'), pl('ground-level concentration'),
+                          pl("inhibitory concentration"), pl("lethal dose"), pl("occupational exposure limit"),
+                          pl("permissible exposure level"), pl("provisional tolerable weekly intake"),
+                          pl("threshold dose"), pl("threshold limit value"), pl("time weighted average"),
+                          pl("time-weighted average"), pl("tolerable dose"), pl("adult"), "bio-accumulation",
+                          "bio-accumulative", "bioaccumulation", "bioaccumulative", "biomedical", pl("boy"),
+                          pl("cancer"), pl("carcinogen"), "carcinogenic", pl("carcinogenicity"), pl("child"),
+                          "clinical", "clinically", pl("cohort"), pl("consumer"), "consumption", "cytotoxic",
+                          pl("cytotoxicity"), pl("cytotoxin"), pl("employee"), "genotoxic",  pl("genotoxicity"),
+                          pl("genotoxin"), pl("girl"), pl("GLC"), 'hepatotoxic', pl("hepatotoxicity"), pl("hepatotoxin"),
+                          pl("human"), pl("human"), pl("infant"), "intake", pl("LOAEL"), pl("LOEL"), pl("man"),
+                          "medical", "nephrotoxic", pl("nephrotoxicity"), pl("nephrotoxin"), "neurotoxic",
+                          pl("neurotoxicity"), pl("neurotoxin"), pl("NOAEC"), pl("NOAEL"), pl("NOEC"), pl("NOEL"),
+                          "occupational", pl("OEL"), pl("patient"), pl("PEL"), "people",  pl("PTWI"), "public",
+                          pl("resident"), pl("review"), "reviewed", pl("TDI"), pl("teratogen"), "teratogenic",
+                          pl("teratogenicity"), pl("TLV"), pl("TWA"), pl("volunteer"), pl("woman"), pl("worker")],
+
+                'EIT-B': ['bio-assay', 'bio-indicator', 'bioassay', 'bioindicator', pl('cell'), 'cellular',
+                          'cultivated', 'cultured', 'in vitro', 'in-vitro', 'model system'],
+                'EIV-B': [pl('animal'), "in vivo", "in-vivo" "live", "living", pl("organism")],
+
+                'ETX-A': ["ecotoxicology", "ecotoxicological", pl("ecotoxicity"), "toxicities", "toxicity",
+                          pl("exposure")],
+
+                'ETX-B': [
+                          pl('noael'), pl('loael'), pl('noel'), pl('loel'), pl('tdi'), pl('noec'),
+                          pl('threshold limit value'), pl('tlv'), "(lc|ec|ld|ed|ic)[ -]?\\(?(50|₅₀)\\)?s?",
+                          pl('noaec'), pl('effective dose'), pl('tolerable dose'), pl('lethal dose'),
+                          pl('threshold dose'), pl('effect concentration'),  pl('inhibitory concentration'),
+                          pl('permissible exposure level'), pl('ground[ -]?level concentration'), pl('glc')],
 
 
-                'ETX': ["ecotoxicology", "ecotoxicological", "ecotoxicology", "ecotoxicity", "toxicity", "toxic",
-                       "trophic", "aquatic", "soil", "troposphere", "tropospheric", "atmospheric", "river", "freshwater", "marine",
-                       "bio-indicator", "indicator", "community", "communities"],
-                # 'IND': ["manufacturing", "manufacture", "manufactured", "industry", "industrial", "waste", "waste-water",
-                #        "waste water", "wastewater", "recovery", "recovered", "produce", "produced", "production", "life-cycle",
-                #        "life cycle", "commercial"],
-                'SUS': ["sustainable", "sustainably", "sustainability", "recycled", "recycling", "recycle", "recyclable",
-                       "disposal", "biodegradable", "biodegradation", "biodegrade", "bio-degradable", "bio-degradation",
-                       "bio-degrade", "decompose", "decomposed", "decomposition", "ecological",  "recovery", "recovered",
-                        "recovering", "bioremediation", "remediation", "reuse", "revegetation", "revegetated", "life-cycle",
-                        "lifecycle", "life cycle",
-                        "\(use|application|utilization\) of \(waste[s]?|wastewater[s]?|waste-water[s]?|waste[ ]water[s]?|sludge[s]?|discharge[s]?|discharged|discard[s]?|discarded\)",
-                        "\(waste[s]?|wastewater[s]?|waste-water[s]?|waste[ ]water[s]?|sludge[s]?|discharge[s]?|discharged|discard[s]?|discarded\)[ ]\(use|application|utilization\)"]
+
+                'SUS-A': ["bio[ -]?degradable", "bio[- ]?degradation", "bio[ -]?degrade", "biodegradable", "conservation",
+                          "conserving", "bioremediation", "contaminant", "contaminated", "contamination", "decontamination",
+                          "depletion", pl("life[- ]?cycle"), "recovered", "recovery", "recyclable", "recycle", "recycled",
+                          "recyclability", "recycling", "remediation", "restoration", "sustainability", "sustainable",
+                          "sustainably", pl("waste"), pl("waste[- ]?water"), pl("discharge"), "discharged", pl("emission"),
+                          "dregs", "garbage", "sewage"],
+
+                'SUS-B': [pl("resource"), pl("soil"), pl("water"), "air", pl("river"), pl("ocean"), pl("sea"), "fresh[- ]?water",
+                          "aquatic", "atmosphere", "atmospheric", "marine", "coastal", pl("lake"), "mud", "sludge",
+                          "clay", "sediment", pl("crop"), "biota", pl("animal"), "vegetation", pl("woodland"), pl("forest")
+                          ],
+
+                'INC-A': ['incidental', 'unintentional', 'unintended', pl('emission'),
+                          pl('byproduct'), pl('by-product'), 'emitted', pl('source'), 'disposal', 'anthropogenic'],
+                'INC-B': [pl('nanoparticle'), pl('np'), 'nano', pl('nano-particle'), pl('dust'), pl('particle'),
+                          'nanoscale', 'nano.+?[ -]', 'fly ash'],
+
+                'NAT-A': ['natural', 'naturally occurring'],
+                'NAT-B': [pl('nanoparticle'), pl('np'), 'nano', pl('nano-particle'), pl('dust'), pl('particle'),
+                          'nanoscale', 'nano.+?'],
+
+                'SIZ-A': ['nano scale', pl('particle size'), pl('particle diameter'), 'size distribution',
+                        'd10', 'd50', 'd90', 'nanometric'],
+
+                'ENG-A': ['engineered', 'engineer', 'manufactured', 'manufacture', 'fabrication', 'fabricated',
+                          'design', 'designed', 'synthetic', 'synthesize', 'synthesis', 'prepare', 'prepared',
+                          'preparation', 'synthesized', 'commercial', "artificial", "functionalized", "commercially"],
+                'ENG-B': [pl('np'), 'nano', pl('nano-particle'), pl('dust'), pl('particle'),
+                          'nanoscale', 'nano.+?[ -]']
 }
 
-EIVexceptions = ['tio', 'bicon', 'sio', 'old man', 'seal']
-EITexceptions = ['nir', 'posterior', 'carrier', 'ria', 'cnt', 'pft']
+EIVexceptions = ['tio', 'bicon', 'sio', 'old man', 'seal', 'ash', 'iso', 'plane', 'planes', 'aa', 'hand']
+EITexceptions = ['nir', 'posterior', 'carrier', 'ria', 'cnt', 'pft',
+                 'tem', 'chloride', 'nmr', 'phosphate', 'tar', 'ash', 'root', 'roots','plane', 'planes']
+
+Exclusions = ['graphene liquid cells glc', 'dual emission']
 
 regex_str = dict()
 for key in singularKeys.keys():
     value = r"\b("
     for elem in singularKeys[key]:
-            value += p.plural(elem).lower() + "|" if elem != "(LC|EC|LD|ED|IC)[ -]?\\(?(50|₅₀)\\)?" else ''
-            value += elem.lower() + "|"
+        value += elem.lower() + "|"
     value = value.rstrip('|') + r")\b"
     regex_str[key] = value
+
 
 class MedlineDbJournal(object):
     def __init__(self, db_entry):
@@ -133,7 +213,9 @@ class MedlineDbJournal(object):
 
 class JournalArticle(object):
 
-    def __init__(self, xml_elem, queryID, number, xml_file_name):
+    def __init__(self, xml_elem, queryID, substance, number, xml_file_name):
+
+        self.code=str()
 
         if queryID == '2.1':
             if 'EIVset' not in locals() and 'EITset' not in locals():
@@ -146,7 +228,7 @@ class JournalArticle(object):
                         for word in line.strip().lower().split(' '):
                             setWrds.add(word)
 
-                EIVset = {'germination', 'root', 'roots', 'in vivo', 'in-vivo'}
+                EIVset = {'germination', 'in vivo', 'in-vivo',  "exaiptasia pallida", "isochrysis galbana"}
 
                 with codecs.open('EIVkeys1.txt', 'r', encoding='utf-8') as EIVfull:
                     for organism in EIVfull:
@@ -165,7 +247,7 @@ class JournalArticle(object):
                     except KeyError:
                         pass
                 EITset = {"in vitro", "in-vitro", "cells", "cell", "cellular", "culture", "cultivated",
-                          "library screen", "macrophages"
+                          "library screen", "macrophages", "bioluminescence inhibition"
                           }
                 with codecs.open('EIT7resulting_v_2_0.txt', 'r', encoding='utf-8') as output:
                     for line_output in output:
@@ -280,12 +362,15 @@ class JournalArticle(object):
             driver.get('http://www.crossref.org/guestquery?doi=' + self.doi)
             ButtonXpath = '//*[@id="mainContent2"]/div/table/tbody/tr/td/table[4]/tbody/tr/td[2]/form/table/tbody/tr[3]/td/input'
             click_cross_button()
-            xml_result=driver.find_element_by_xpath('//*[@id="mainContent2"]/div/table/tbody/\
-                tr/td/table[4]/tbody/tr[2]/td[2]/table/tbody/tr[2]/td[2]/textarea').text
+            try:
+                xml_result=driver.find_element_by_xpath('//*[@id="mainContent2"]/div/table/tbody/\
+                    tr/td/table[4]/tbody/tr[2]/td[2]/table/tbody/tr[2]/td[2]/textarea').text
+            except:
+                xml_result = None
         try:
             self.crossrefCited= \
                 xml_result.split('<crm-item name="citedby-count" type="number">', 1)[1].split('</crm-item>')[0]
-        except IndexError:
+        except (IndexError, AttributeError):
             self.crossrefCited = ''
 
         if self.crossrefCited != '' and int(self.crossrefCited) >= 35:
@@ -304,55 +389,80 @@ class JournalArticle(object):
         else:
             self.NO = ''
 
-        AbstractTitle = (self.articleTitle + ". " + self.articleAbstract).lower().replace('..', '.').replace('plasma torch', '')
+        AbstractTitle = (self.articleTitle + ". " + self.articleAbstract).lower().replace('..', '.')
+
+        for excl in Exclusions:
+            AbstractTitle = AbstractTitle.replace(excl, '')
+
+        if queryID == '4.1' and re.sub(notnpregex.lower(), '', AbstractTitle, re.I):
+            AbstractTitle = AbstractTitle.replace(r'np', '')
+
 
         if queryID == '2.1':
+            MQstring = re.compile(regex_str['MQ2_1'], re.I)
 
-            MQstring = re.compile(regex_str['MQ2_1'])
         elif queryID == '3.1':
-            MQstring = re.compile(regex_str['MQ3_1'])
-            ETXcodekey = re.compile(regex_str['ETX'])
-            # INDcodekey = re.compile(regex_str['IND'])
-            SUScodekey = re.compile(regex_str['SUS'])
+            MQstring_A = re.compile(regex_str['MQ3_1-A'], re.I)
+            MQstring_B = re.compile(regex_str['MQ3_1-B'], re.I)
+            ETX_A = re.compile(regex_str['ETX-A'], re.I)
+            ETX_B = re.compile(regex_str['ETX-B'], re.I)
+            SUS_A = re.compile(regex_str['SUS-A'], re.I)
+            SUS_B = re.compile(regex_str['SUS-B'], re.I)
+
         elif queryID == '4.1':
-            MQstring = re.compile(regex_str['MQ4_1'])
+            MQstring_A = re.compile(regex_str['MQ4_1-A'], re.I)
+            MQstring_B = re.compile(regex_str['MQ4_1-B'], re.I)
+            INC_A = re.compile(regex_str['INC-A'], re.I)
+            INC_B = re.compile(regex_str['INC-B'], re.I)
+            NAT_A = re.compile(regex_str['NAT-A'], re.I)
+            NAT_B = re.compile(regex_str['NAT-B'], re.I)
+            NAT_dir=re.compile(
+                r"\b" + regex_str['NAT-A'].strip("\\b") + ' ' + regex_str['NAT-B'].strip("\\b") + r"\b",
+                re.I)
+
+            ENG_A = re.compile(regex_str['ENG-A'], re.I)
+            ENG_B = re.compile(regex_str['ENG-B'], re.I)
+            SIZ_A = re.compile(regex_str['SIZ-A'], re.I)
+            SIZ_B = re.compile(r"(\d{1,3}(\.\d+)*)([ ](\d{1,3}(\.\d+)*))?[ ]?([nμ]m)", re.I)
+
 
         noMQ = True
-        #self.HR = ''
-        #if len(set(re.findall(MQstring, AbstractTitle.replace('atomic absorption spectrometry', '')
-        #                                             .replace('atomic absorption spectroscopy', '')
-        #                                             .replace('absorption atomic spectroscopy', '')
-        #                                             .replace('absorption atomic spectrometry', '')))) >= 3:
-            #self.HR = 'HR'
-            #self.weight += 2
-            #logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-            #        keyword_scanned=' '.join(set(re.findall(MQstring, AbstractTitle))), flags='HR')
-            #noMQ = False
 
-        #el
-
-        if len(set(re.findall(MQstring, AbstractTitle#.replace('atomic absorption spectrometry', '')
-                                                       # .replace('atomic absorption spectroscopy', '')
-                                                       # .replace('absorption atomic spectroscopy', '')
-                                                       # .replace('absorption atomic spectrometry', '')
-                              ))) > 0:
-            logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                    keyword_scanned=' '.join([(x[0] if isinstance(x, tuple) else x) for x in re.findall(MQstring, AbstractTitle)]), flags='no NR')
-            noMQ = False
+        # if len(set(re.findall(MQstring, AbstractTitle#.replace('atomic absorption spectrometry', '')
+        #                                                # .replace('atomic absorption spectroscopy', '')
+        #                                                # .replace('absorption atomic spectroscopy', '')
+        #                                                # .replace('absorption atomic spectrometry', '')
+        #                       ))) > 0:
+        #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
+        #             keyword_scanned=' '.join([(x[0] if isinstance(x, tuple) else x) for x in re.findall(MQstring, AbstractTitle)]), flags='no NR')
+        #     noMQ = False
 
         self.NR = self.HUM = self.LVL = self.CTX = ''
-        #self.ERM = self.EXP = ''
-        if queryID in ['3.1', '4.1']:
-            self.EMIS = ''
+        self.NRkeys = self.HUMkeys = self.LVLkeys = self.CTXkeys = ''
 
         # Code assignment
-        if queryID == '2.1':
 
-            bodypartsList = str()
+
+
+
+        self.MQkey = self.INCkey = self.NATkey = self.SIZkey = self.ENGkey = self.NRkey = str()
+        self.EIVkey = self.EITkey = str()
+        self.EIV=self.EIT= self.TOX = str()
+        self.MQ = self.INC = self.NAT = self.SIZ = self.ENG = self.NR = str()
+        self.codekey1 = self.codekey2 = self.codekey3 = self.codekey4 = self.codekey5 = str()
+        self.code1 = self.code2 = self.code3 = self.code4 = self.code5 = "ENV"
+        self.codeReason=str()
+
+
+        if queryID == '2.1':
+            EIVkeysSet = set()
+            EITkeysSet = set()
+
+            bodypartsArray = list()
             with open('bodyparts.txt', 'r') as bodyparts:
                 for line in bodyparts:
-                    bodypartsList += "|" + line.strip().lower()
-            bodypartsList.lstrip('|')
+                    bodypartsArray.append("(" + line.strip().lower() + ")")
+            bodypartsList = '|'.join(bodypartsArray)
 
             if re.search(r'in[- ]vivo', self.articleTitle, re.IGNORECASE):
                 logline(number=number, assigned_code='EIV', link=self.link,
@@ -360,16 +470,16 @@ class JournalArticle(object):
                         keyword_scanned=re.search(r'in[- ]?vivo', self.articleTitle, re.IGNORECASE).group(0),
                         )
                 self.codeWeight = 10
-                self.code = 'EIV'
+                self.EIV = 'EIV'
+                EIVkeysSet.add(re.search(r'in[- ]?vivo', self.articleTitle, re.IGNORECASE).group(0) + " [in Title]")
                 stopINVIVO = True
+                self.codeReason = "In Vivo in Title"
             else:
                 stopINVIVO = False
 
         HUMstring = re.compile(regex_str['HUM'])
         LVLstring = re.compile(regex_str['LVL'])
-        #REVstring = re.compile(regex_str['REV'])
         CTXstring = re.compile(regex_str['CTX'])
-        #ERMstring = re.compile(regex_str['ERM'])
 
 
         removeList = ["solar cell",
@@ -385,13 +495,17 @@ class JournalArticle(object):
                       "inductively coupled plasma",
                       "emission-scanning",
                       "emission scanning",
-                      "field emission microscopy"]
+                      "field emission microscopy",
+                      "discharge capacity",
+                      "atmospheric pressure",
+                      "plasma torch"]
 
         AbstractTitleMod = str()
         for char in AbstractTitle:
             AbstractTitleMod += char if char.isalnum() or char == '.' else ' '
         for word in removeList:
             AbstractTitleMod = AbstractTitleMod.lower().replace(word, '')
+
 
         # function for creating a set of unique keywords found in Abstract and/or Title
         def unique_flag(regcomp):
@@ -405,53 +519,39 @@ class JournalArticle(object):
                 else:
                     result1.append(elem)
             return list(
-                set(
-                [p.singular_noun(x) if p.singular_noun(x) else
-                 x for x in result1]
-            ))
+                            set(
+                                [p.singular_noun(x) if p.singular_noun(x) else x for x in result1]
+                            )
+                        )
 
-        if len(unique_flag(HUMstring)) >= 2 and queryID != '3.1':
+        if len(unique_flag(HUMstring)) >= 1 and queryID not in ('3.1', '4.1'):
             self.HUM = 'HUM'
-            self.weight += (3 if queryID != '4.1' else 0)
+            self.HUMkeys = ' '.join(unique_flag(HUMstring))
+            self.weight += 3
             logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                    keyword_scanned=' '.join(unique_flag(HUMstring)), flags='HUM')
+                    keyword_scanned=self.HUMkeys, flags='HUM')
+
 
         if len(unique_flag(LVLstring)) >= 1:
             self.LVL = 'LVL'
+            self.LVLkeys = ' '.join(unique_flag(LVLstring))
             self.weight += (3 if queryID != '4.1' else 0)
             logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                    keyword_scanned=' '.join(unique_flag(LVLstring)),
+                    keyword_scanned=self.LVLkeys,
                     flags='LVL')
 
-        # if len(unique_flag(REVstring)) >= 1:
-        #     self.REV = 'REV'
-        #     self.weight += 2
-        #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-        #         keyword_scanned=' '.join(unique_flag(REVstring)), flags='REV')
-
-        if len(unique_flag(CTXstring)) >= 2:
-            self.CTX='CTX'
-            #self.weight += (3 if queryID != '4.1' else 0)
+        if len(unique_flag(CTXstring)) >= 1:
+            self.CTX = 'CTX'
+            self.CTXkeys = ' '.join(unique_flag(CTXstring))
             logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                    keyword_scanned=' '.join(unique_flag(CTXstring)), flags='CTX')
+                    keyword_scanned=self.CTXkeys, flags='CTX')
 
-        # if len(unique_flag(ERMstring)) >= 2:
-        #     self.ERM = 'ERM'
-        #     self.weight += (2 if queryID != '4.1' else 0)
-        #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-        #             keyword_scanned=' '.join(unique_flag(ERMstring)), flags='ERM')
 
-        if queryID in ['3.1', '4.1'] and ('emission' in AbstractTitleMod):
-            logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                    keyword_scanned='emission', flags='EMIS')
-            self.EMIS = 'EMIS'
-            self.weight += (0 if queryID != '4.1' else 1)
 
         if queryID == '2.1':
             for EITkey in EITset:
                 if re.search(re.compile(r'\b' + EITkey + r'\b'), AbstractTitleMod):
                     AbstractTitleMod = AbstractTitleMod.replace(EITkey, "<EITkey>" + EITkey + "</EITkey>")
-
             for EIVkey in EIVset:
                 if re.search(r'\b' + re.escape(EIVkey) + r'\b', AbstractTitleMod):
                     AbstractTitleMod = AbstractTitleMod.replace(EIVkey, "<EIVkey>" + EIVkey + "</EIVkey>")
@@ -459,7 +559,8 @@ class JournalArticle(object):
         sentenceList = tokenize.sent_tokenize(AbstractTitleMod)
 
         keyFlag = dict()
-        sentenceNumber = 0
+
+
 
         def check_NR(sent):
             if queryID != '4.1':
@@ -472,93 +573,256 @@ class JournalArticle(object):
 
                 if re.search(r'\bnano.*?\b', sent) and not re.search(r'\b' + EIVnanoRegex + r'\b', sent)\
                         and not 'nanovirus' in sent:
-                    logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                            keyword_scanned=re.search(r'\bnano.*?\b', sent).group(0), flags='NR', location=locFlag)
+                    self.NRkeys = re.search(r'\bnano.*?\b', sent).group(0)
+                    #logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
+                     #       keyword_scanned=self.NRkeys, flags='NR', location=locFlag)
                     return True
                 else:
                     return False
 
 
+        if queryID == '3.1':
+
+            if len(re.findall(r'\b' + "|".join(substance) + r'\b', AbstractTitleMod)) >= 2 \
+                    and re.findall(ETX_A, AbstractTitleMod):
+                self.codekey1 += '[' + ', '.join(re.findall(r'\b' + "|".join(substance) + r'\b', AbstractTitleMod)) + \
+                             " + " + ", ".join(re.findall(ETX_A, AbstractTitleMod)) + " (A)]; "
+                self.code1 = "ETX"
+
+            if len(re.findall(r'\b' + "|".join(substance) + r'\b', AbstractTitleMod)) >= 2 \
+                    and re.findall(SUS_A, AbstractTitleMod):
+                self.codekey1 += '[' + ', '.join(re.findall(r'\b' + "|".join(substance) + r'\b', AbstractTitleMod)) + \
+                             " + " + ', '.join(re.findall(SUS_A, AbstractTitleMod)) + " (A)]; "
+                if self.code1 == "ETX":
+                    self.code1 = "SUS/ETX"
+                else:
+                    self.code1 = "SUS"
+
+            if re.findall(ETX_A, AbstractTitleMod):
+                self.codekey4 += "[" + ", ".join(re.findall(ETX_A, AbstractTitleMod)) + " (A)]; "
+                self.code4 = "ETX"
+            if re.findall(SUS_A, AbstractTitleMod):
+                self.codekey4 += "[" + ", ".join(re.findall(SUS_A, AbstractTitleMod)) + " (A)]; "
+                if self.code4 == "ETX":
+                    self.code4 = "SUS/ETX"
+                else:
+                    self.code4 = "SUS"
+
+            sub_title=str()
+
+        self.MQkeyNum = 0
+
+
+
+        sentenceNumber = 0
         for sentence in sentenceList:
-            locFlag = ''
-            if sentenceNumber == 0:
-                locFlag = 'Title'
-            elif sentenceNumber <= 3:
-                locFlag = '1stThree'
-            else:
-                locFlag = 'lastSents'
+
+
+            def flag_key_word(subst, regex1, regex2, sent=sentence):
+                return "[" + subst + ' ' + ', '.join(re.findall(regex1, sent)) + '(A) + ' \
+                       + ', '.join([(x[0] if isinstance(x, tuple) else x) for x in re.findall(regex2, sent)]) + '(B)' + "]; "
+
+
+
+            if queryID != '2.1' and re.findall(MQstring_A, sentence) and re.findall(MQstring_B, sentence):
+
+                self.MQ = "MQ"
+                self.MQkey += flag_key_word('', MQstring_A, MQstring_B)
+                self.MQkeyNum += len(re.findall(MQstring_A, sentence)) + len(re.findall(MQstring_B, sentence))
+                noMQ = False
+
+            elif queryID == '2.1' and re.findall(MQstring, sentence):
+                self.MQ = "MQ"
+                match = re.findall(MQstring, sentence)
+                self.MQkey += ', '.join(match)  + '; '
+                self.MQkeyNum += len(re.findall(MQstring, sentence))
+                noMQ = False
 
             # Checking flags
             if check_NR(sentence):
                 self.NR = "NR"
 
-            # if "exposure" in sentence and \
-            #     re.search(r"\b(monitor[(ing)|(ed)]?|occupational|occurrence|model[(led)|(ling)]?|"
-            #               r"hazard|worker[s]?|resident[s]?|health risk[s]?|human|industry)\b",
-            #               sentence):
-            #     self.EXP = "EXP"
-            #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-            #             keyword_scanned=re.search(
-            #                     r"\b(monitor[(ing)|(ed)]?|occupational|occurrence|model[(led)|(ling)]?|"
-            #                     r"hazard|worker[s]?|resident[s]?|health risk[s]?|human|industry)\b",
-            #                     sentence).group(0), flags='EXP', location=locFlag)
+
+
+            if sentenceNumber == 0:
+                sentence21 = sentence
+                locFlag='Title'
+            elif sentenceNumber <= 3:
+
+                if sentenceNumber == 1:
+                    locFlag = '1stThree'
+                    sentence21 = sentence
+                else:
+                    sentence21 += sentence
+            else:
+                if sentenceNumber == 4:
+                    locFlag='lastSents'
+                    sentence21 = sentence
+                else:
+                    sentence21 += sentence
 
             if queryID == '2.1':
 
-                if not stopINVIVO and re.search(r"\b" + bodypartsList + r"\b", sentence) and\
-                        '<EIVkey>' in sentence:
+                if sentenceNumber in (0, 3, len(sentenceList) - 1):
+                    if not stopINVIVO and re.search(r"\b(" + bodypartsList + r")\b", sentence21) and\
+                            '<EIVkey>' in sentence21:
 
-                    keyFlag.update({'BodypartEIV' + locFlag:
-                                re.search(r"\b" + bodypartsList + r"\b", sentence).group(0) + " " +
-                                sentence.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0]
-                            })
+                        keyFlag.update({'BodypartEIV' + locFlag:
+                                    re.search(r"\b" + bodypartsList + r"\b", sentence21).group(0) + " " +
+                                    sentence21.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0]
+                                })
+                        EIVkeysSet.add(re.search(r"\b" + bodypartsList + r"\b", sentence21).group(0) + ' (BP) [in ' + locFlag + ']')
+                        EIVkeysSet.add(sentence21.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0] + " [in " + locFlag + ']')
 
-                if not stopINVIVO and re.search('isolate[sd]?', sentence) and \
-                                    re.search('(microb(e|(ial)|(es))|bacteria[l]?)', sentence):
-                    keyFlag.update({'BactIsolate' + locFlag:
-                                        re.search('isolate[sd]?', sentence).group(0) + " " +
-                                        re.search('(microb(e|(ial)|(es))|bacteria[l]?)', sentence).group(0)
-                                    })
-
-                if not stopINVIVO and '<EITkey>' in sentence and '<EIVkey>' in sentence:
-                    keyFlag.update({'EIV+EIT' + locFlag:
-                                        sentence.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0] + " " +
-                                        sentence.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0]
-                                    })
-
-                if not stopINVIVO and '<EITkey>' in sentence:
-                    keyFlag.update({'EIT' + locFlag: sentence.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0]})
-
-                    if re.search('isolate[sd]?', sentence):
-                        keyFlag.update({'EITisolate' + locFlag:
-                                        sentence.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0] + " " +
-                                        re.search('isolate[sd]?', sentence).group(0)
+                    if not stopINVIVO and re.search('isolate[sd]?', sentence21) and \
+                                        re.search('(microb(e|(ial)|(es))|bacteria[l]?)', sentence21):
+                        keyFlag.update({'BactIsolate' + locFlag:
+                                            re.search('isolate[sd]?', sentence21).group(0) + " " +
+                                            re.search('(microb(e|(ial)|(es))|bacteria[l]?)', sentence21).group(0)
                                         })
+                        EITkeysSet.add(re.search('isolate[sd]?', sentence21).group(0) + " " +\
+                                            re.search('(microb(e|(ial)|(es))|bacteria[l]?)', sentence21).group(0) +  " [in " + locFlag + ']')
 
-                if not stopINVIVO and '<EIVkey>' in sentence:
-                    keyFlag.update({'EIV' + locFlag: sentence.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0]})
+                    if not stopINVIVO and '<EITkey>' in sentence21 and '<EIVkey>' in sentence21:
+                        keyFlag.update({'EIV+EIT' + locFlag:
+                                            sentence21.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0] + " " +
+                                            sentence21.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0]
+                                        })
+                        EITkeysSet.add(sentence21.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0] + " [in " + locFlag + ']')
+                        EIVkeysSet.add(sentence21.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0] + " [in " + locFlag + ']')
+
+                    if not stopINVIVO and '<EITkey>' in sentence21:
+                        keyFlag.update({'EIT' + locFlag: sentence21.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0]})
+
+                        EITkeysSet.add(sentence21.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0] + " [in " + locFlag + ']')
+
+                        if re.search('isolate[sd]?', sentence):
+                            keyFlag.update({'EITisolate' + locFlag:
+                                            sentence21.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0] + " " +
+                                            re.search('isolate[sd]?', sentence21).group(0)
+                                            })
+                            EITkeysSet.add(sentence21.split('<EITkey>', 1)[1].split('</EITkey>', 1)[0] + " " +\
+                                            re.search('isolate[sd]?', sentence21).group(0) + " [in" + locFlag + ']')
+
+
+                    if not stopINVIVO and '<EIVkey>' in sentence21:
+                        keyFlag.update({'EIV' + locFlag: sentence21.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0]})
+
+                        EIVkeysSet.add(sentence21.split('<EIVkey>', 1)[1].split('</EIVkey>', 1)[0] + " [in " + locFlag + ']')
 
             elif queryID == '3.1':
-                def check3_1(code, codestr):
-                    if re.findall(code, sentence):
-                        keyFlag.update({codestr + locFlag:
-                                       str(keyFlag.get(codestr + locFlag) + ' & ' if keyFlag.get(codestr + locFlag)
-                                           else '') + ' & '.join(re.findall(code, sentence))})
-                check3_1(ETXcodekey, 'ETX')
-                #check3_1(INDcodekey, 'IND')
-                check3_1(SUScodekey, 'SUS')
+                subst_in_sentence = re.findall(r'\b' + "|".join(substance) + r'\b', sentence)
+                if locFlag == "Title" and len(subst_in_sentence) > 0:
+                    sub_title = ', '.join(set(subst_in_sentence))
+
+                    if re.findall(ETX_A, sentence):
+                        self.codekey5 += '{[' + sub_title + " - in Title" + " + " + ", ".join(re.findall(ETX_A,
+                                                                                        sentence)) + " (A) - in Title]}; "
+                        self.code5 = "ETX"
+
+                    if re.findall(SUS_A, sentence):
+                        self.codekey5 += '{[' + sub_title + " - in Title" + " + " + ", ".join(re.findall(SUS_A,
+                                                                                      sentence)) + " (A) - in Title]}; "
+                        if self.code5 == "ETX":
+                            self.code5="SUS/ETX"
+                        else:
+                            self.code5="SUS"
+
+
+                if len(subst_in_sentence) > 0 and re.findall(ETX_A, sentence):
+                    self.codekey2 += '[' + ', '.join(set(subst_in_sentence)) + " + " +\
+                                 ', '.join(re.findall(ETX_A, sentence)) + " (A)]; "
+                    self.code2="ETX"
+
+                if len(subst_in_sentence) and re.findall(SUS_A, sentence):
+                    self.codekey2 += '[' + '; '.join(set(subst_in_sentence)) + " + " +\
+                                 ', '.join(re.findall(SUS_A, sentence)) + " (A)]; "
+                    if self.code2 == "ETX":
+                        self.code2 = "SUS/ETX"
+                    else:
+                        self.code2 = "SUS"
+
+
+                if re.findall(ETX_A, sentence) and re.findall(ETX_B, sentence) and len(subst_in_sentence) > 0:
+                    self.codekey3 += flag_key_word(', '.join(set(subst_in_sentence)) + " +", ETX_A, ETX_B)
+                    self.code3 = "ETX"
+                elif re.findall(SUS_A, sentence) and re.findall(SUS_B, sentence) and len(subst_in_sentence) > 0:
+                    self.codekey3 += flag_key_word(', '.join(set(subst_in_sentence))+ " +", SUS_A, SUS_B)
+                    if self.code3 == "ETX":
+                        self.code3 = "SUS/ETX"
+                    else:
+                        self.code3 = "SUS"
+
+                if locFlag != "Title" and sub_title != str() and self.code5 == "ENV":
+                    if re.findall(ETX_A, sentence) and re.findall(ETX_B, sentence):
+
+                        self.codekey5 += '[' + sub_title + " + " + ", ".join([(x[0] if
+                        isinstance(x, tuple) else x) for x in re.findall(ETX_A, sentence)]) + ", (A), " + ', '.join([(x[0] if
+                        isinstance(x, tuple) else x) for x in re.findall(ETX_B, sentence)]) + " (B) - in sentence " +\
+                                         str(sentenceNumber) + ']; '
+                        if self.code5 not in ("ETX", "SUS/ETX"):
+                            if self.code5 == "SUS":
+                                self.code5 = "SUS/ETX"
+                            else:
+                                self.code5="ETX"
+
+                if locFlag != "Title" and sub_title != str() and self.code5 in ("ENV", "ETX"):
+                    if re.findall(SUS_A, sentence) and re.findall(SUS_B, sentence):
+
+                        self.codekey5+='[' + sub_title + " + "  + ", ".join([(x[0] if
+                        isinstance(x, tuple) else x) for x in re.findall(SUS_A, sentence)]) + " (A), " + ', '.join([(x[0] if
+                        isinstance(x, tuple) else x) for x in re.findall(SUS_B, sentence)]) + " (B) - in sentence " + \
+                                       str(sentenceNumber) + ']; '
+                        if self.code5 not in ("SUS", "SUS/ETX"):
+                            if self.code5 == "ETX":
+                                self.code5="SUS/ETX"
+                            else:
+                                self.code5="SUS"
+
+            elif queryID == '4.1':
+
+                if re.search(r'emission|emitted', sentence)\
+                        and re.search(r'light|optical|heat|energy|exciton|spectroscopy', sentence):
+                    sentence = re.sub(r'emission|emitted', '', sentence)
+
+                if re.findall(INC_A, sentence) and re.findall(INC_B, sentence):
+                    self.INCkey += flag_key_word(INC_A, INC_B)
+                    self.INC = "INC"
+
+                if re.findall(NAT_dir, sentence):
+                    self.NAT = "NAT"
+                    self.NATkey += flag_key_word(NAT_A, NAT_B)
+
+                if re.findall(ENG_A, sentence) and re.findall(ENG_B, sentence):
+                    self.ENG = "ENG"
+                    self.ENGkey += flag_key_word(ENG_A, ENG_B)
+
+                if re.findall(SIZ_A, sentence):
+                    self.SIZkey += "[" + ', '.join(re.findall(SIZ_A, sentence)) + "] "
+                    self.SIZ="SIZ"
+
+                if re.findall(SIZ_B, sentence):
+                    siz_result = re.search(SIZ_B, sentence)
+
+                    if float(siz_result.group(1)) < 500 and siz_result.group(6) == 'nm' or\
+                        float(siz_result.group(1)) < 0.5 and siz_result.group(6) == 'μm':
+                        self.SIZkey += "[" + ', '.join(x[0] for x in re.findall(SIZ_B, sentence)) + '(B)' + "] "
+                        self.SIZ = "SIZ"
 
             sentenceNumber += 1
 
         if queryID == '2.1':
+            self.EIVkey = '; '.join(EIVkeysSet)
+            self.EITkey = '; '.join(EITkeysSet)
             # Assigning code according to the algorithm
             if "BodypartEIVTitle" in keyFlag.keys():
-                logline(number=number, assigned_code='EIT', link=self.link,
+                logline(number=number, assigned_code='EIV', link=self.link,
                         title=self.articleTitle, abstr=self.articleAbstract,
                         location='Title', keyword_scanned=keyFlag["BodypartEIVTitle"],
                         )
                 self.codeWeight=10
-                self.code='EIV'
+                self.EIV='EIV'
+                self.codeReason = "EIV in title and body part in title"
             # 1a
             elif "EITisolateTitle" in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -566,7 +830,8 @@ class JournalArticle(object):
                         location='Title', keyword_scanned=keyFlag["EITisolateTitle"],
                         )
                 self.codeWeight = 9
-                self.code = 'EIT'
+                self.EIT = 'EIT'
+                self.codeReason="EIT isolate in Title"
             # 1b
             elif "BactIsolateTitle" in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -574,7 +839,8 @@ class JournalArticle(object):
                         location='Title', keyword_scanned=keyFlag["BactIsolateTitle"],
                         )
                 self.codeWeight = 9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="bacterial isolate in Title"
             # 1c
             elif 'EIVTitle' in keyFlag.keys() and 'EIV+EITTitle' not in keyFlag.keys():
                 logline(number=number, assigned_code='EIV', link=self.link,
@@ -582,7 +848,8 @@ class JournalArticle(object):
                         location='Title', keyword_scanned=keyFlag["EIVTitle"],
                         )
                 self.codeWeight = 10
-                self.code ='EIV'
+                self.EIV ='EIV'
+                self.codeReason="EIV in Title"
             # 1d
             elif 'EITTitle' in keyFlag.keys() and 'EIV+EITTitle' not in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -590,7 +857,8 @@ class JournalArticle(object):
                         location='Title', keyword_scanned=keyFlag["EITTitle"],
                         )
                 self.codeWeight = 9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="EIT in Title"
             # 3
             elif 'EIV+EITTitle' in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -598,15 +866,17 @@ class JournalArticle(object):
                         location='Title', keyword_scanned=keyFlag["EIV+EITTitle"],
                         )
                 self.codeWeight = 9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="EIV and EIT in Title"
 
             elif "BodypartEIV1stThree" in keyFlag.keys():
-                logline(number=number, assigned_code='EIT', link=self.link,
+                logline(number=number, assigned_code='EIV', link=self.link,
                         title=self.articleTitle, abstr=self.articleAbstract,
                         location='1st three sentences', keyword_scanned=keyFlag["BodypartEIV1stThree"],
                         )
                 self.codeWeight=10
-                self.code='EIV'
+                self.EIV='EIV'
+                self.codeReason="EIV and body part in 1st 3 sentences"
 
 
             # 2a
@@ -616,7 +886,8 @@ class JournalArticle(object):
                         location='1st three sentences', keyword_scanned=keyFlag["EITisolate1stThree"],
                         )
                 self.codeWeight=9
-                self.code ='EIT'
+                self.EIT = 'EIT'
+                self.codeReason="EIT isolate in 1st 3 sentences"
             # 2a
             elif "BactIsolate1stThree" in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -624,7 +895,8 @@ class JournalArticle(object):
                         location='1st three sentences', keyword_scanned=keyFlag["BactIsolate1stThree"],
                         )
                 self.codeWeight=9
-                self.code ='EIT'
+                self.EIT = 'EIT'
+                self.codeReason="Bacterial isolate in 1st 3 sentences"
             # 2b
             elif 'EIV1stThree' in keyFlag.keys() and 'EIV+EIT1stThree' not in keyFlag.keys():
                 logline(number=number, assigned_code='EIV', link=self.link,
@@ -632,7 +904,8 @@ class JournalArticle(object):
                         location='1st three sentences', keyword_scanned=keyFlag["EIV1stThree"],
                         )
                 self.codeWeight=10
-                self.code ='EIV'
+                self.EIV = 'EIV'
+                self.codeReason="EIV in 1st 3 sentences"
             # 2c
             elif 'EIT1stThree' in keyFlag.keys() and 'EIV+EIT1stThree' not in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -640,7 +913,8 @@ class JournalArticle(object):
                         location='1st three sentences', keyword_scanned=keyFlag["EIT1stThree"],
                         )
                 self.codeWeight = 9
-                self.code = 'EIT'
+                self.EIT = 'EIT'
+                self.codeReason="EIT in 1st 3 sentences"
             # 4
             elif 'EIV+EIT1stThree' in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -648,15 +922,18 @@ class JournalArticle(object):
                         location='1st three sentences', keyword_scanned=keyFlag["EIV+EIT1stThree"],
                         )
                 self.codeWeight = 9
-                self.code ='EIT'
+                self.EIT = 'EIT'
+                self.codeReason="EIV + EIT in 1st 3 sentences"
 
             elif "BodypartEIVlastSents" in keyFlag.keys():
-                logline(number=number, assigned_code='EIT', link=self.link,
+                logline(number=number, assigned_code='EIV', link=self.link,
                         title=self.articleTitle, abstr=self.articleAbstract,
                         location='Last Sentences', keyword_scanned=keyFlag["BodypartEIVlastSents"],
                         )
-                self.codeWeight=10
-                self.code='EIV'
+
+                self.codeWeight = 10
+                self.EIV = 'EIV'
+                self.codeReason="EIV and body part in last sentences"
 
             # 5a
             elif "EITisolatelastSents" in keyFlag.keys():
@@ -665,7 +942,8 @@ class JournalArticle(object):
                         location='Last Sentences', keyword_scanned=keyFlag["EITisolatelastSents"],
                         )
                 self.codeWeight=9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="EIT isolate in last sentences"
             # 5a
             elif "BactIsolatelastSents" in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -673,7 +951,8 @@ class JournalArticle(object):
                         location='Last Sentences', keyword_scanned=keyFlag["BactIsolatelastSents"],
                         )
                 self.codeWeight=9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="Bacterial isolate in last sentences"
             # 5b
             elif 'EIVlastSents' in keyFlag.keys() and 'EIV+EITlastSents' not in keyFlag.keys():
                 logline(number=number, assigned_code='EIV', link=self.link,
@@ -681,7 +960,8 @@ class JournalArticle(object):
                         location='Last Sentences', keyword_scanned=keyFlag["EIVlastSents"],
                         )
                 self.codeWeight=10
-                self.code ='EIV'
+                self.EIV ='EIV'
+                self.codeReason="EIV in last sentences"
             # 5c
             elif 'EITlastSents' in keyFlag.keys() and 'EIV+EITlastSents' not in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -689,7 +969,9 @@ class JournalArticle(object):
                         location='Last Sentences', keyword_scanned=keyFlag["EITlastSents"],
                         )
                 self.codeWeight=9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="EIT in last sentences"
+
             # 5d
             elif 'EIV+EITlastSents' in keyFlag.keys():
                 logline(number=number, assigned_code='EIT', link=self.link,
@@ -697,152 +979,20 @@ class JournalArticle(object):
                         location='Last Sentences', keyword_scanned=keyFlag["EIV+EITlastSents"],
                         )
                 self.codeWeight=9
-                self.code ='EIT'
+                self.EIT ='EIT'
+                self.codeReason="EIV + EIT in last sentences"
+
             elif not stopINVIVO:
                 self.codeWeight = 7
-                self.code = 'TOX'
+                self.TOX = 'TOX'
                 logline(number=number, assigned_code='TOX', link=self.link,
                         title=self.articleTitle, abstr=self.articleAbstract,
                             )
-
-        elif queryID == '3.1':
-
-            if 'ETXTitle' in keyFlag.keys():
-                logline(number=number, assigned_code='ETX', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='Title', keyword_scanned=keyFlag["ETXTitle"],
-                        )
-                self.codeWeight = 8
-                self.code='ETX'
-            elif 'SUSTitle' in keyFlag.keys():
-                logline(number=number, assigned_code='SUS', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='Title', keyword_scanned=keyFlag["SUSTitle"],
-                        )
-                self.codeWeight = 7
-                self.code = 'SUS'
-            # elif 'INDTitle' in keyFlag.keys():
-            #     logline(number=number, assigned_code='IND', link=self.link,
-            #             title=self.articleTitle, abstr=self.articleAbstract,
-            #             location='Title', keyword_scanned=keyFlag["INDTitle"],
-            #             )
-            #     self.codeWeight = 7
-            #     self.code = 'IND'
-
-            elif keyFlag.get('ETX1stThree') and len(keyFlag.get('ETX1stThree').split(' & ')) >= 2:
-                logline(number=number, assigned_code='ETX', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='1stThree', keyword_scanned=keyFlag["ETX1stThree"],
-                        )
-                self.codeWeight = 8
-                self.code='ETX'
-            elif keyFlag.get('SUS1stThree') and len(keyFlag.get('SUS1stThree').split(' & ')) >= 2:
-                logline(number=number, assigned_code='SUS', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='1stThree', keyword_scanned=keyFlag["SUS1stThree"],
-                        )
-                self.codeWeight = 7
-                self.code='SUS'
-            # elif keyFlag.get('SUS1stThree') and len(keyFlag.get('SUS1stThree').split(' & ')) >= 2:
-            #     logline(number=number, assigned_code='IND', link=self.link,
-            #             title=self.articleTitle, abstr=self.articleAbstract,
-            #             location='1stThree', keyword_scanned=keyFlag["IND1stThree"],
-            #             )
-            #     self.codeWeight = 7
-            #     self.code = 'IND'
-
-            elif len(keyFlag.get('ETX1stThree').split(' & ')) if keyFlag.get('ETX1stThree') else 0 \
-                + len(keyFlag.get('ETXlastSents').split(' & ')) if keyFlag.get('ETXlastSents') else 0 >= 2:
-                logline(number=number, assigned_code='ETX', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='Abstract',
-                        keyword_scanned=keyFlag["ETX1stThree"] if keyFlag.get('ETX1stThree') else ''+
-                                        keyFlag["ETXlastSents"] if keyFlag.get('ETXlastSents') else '',
-                        )
-                self.codeWeight = 8
-                self.code = 'ETX'
-            elif len(keyFlag.get('ETX1stThree').split(' & ')) if keyFlag.get('ETX1stThree') else 0  \
-                    + len(keyFlag.get('ETXlastSents').split(' & ')) if keyFlag.get('ETXlastSents') else 0 >= 1:
-                logline(number=number, assigned_code='ETX', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='Abstract',
-                        keyword_scanned=keyFlag["ETX1stThree"] if keyFlag.get('ETX1stThree') else ''
-                                        + keyFlag["ETXlastSents"] if keyFlag.get('ETXlastSents') else '',
-                        )
-                self.codeWeight = 7
-                self.code = 'ETX'
-
-            elif len(keyFlag.get('SUS1stThree').split(' & ')) if keyFlag.get('SUS1stThree') else 0  \
-                    + len(keyFlag.get('SUSlastSents').split(' & ')) if keyFlag.get('SUSlastSents') else 0  >= 2:
-                logline(number=number, assigned_code='SUS', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='Abstract',
-                        keyword_scanned=keyFlag["SUS1stThree"] if keyFlag.get('SUS1stThree') else ''
-                                        + keyFlag["SUSlastSents"] if keyFlag.get('SUSlastSents') else '',
-                        )
-                self.codeWeight = 7
-                self.code = 'SUS'
-
-            elif len(keyFlag.get('SUS1stThree').split(' & ')) if keyFlag.get('SUS1stThree') else 0 +\
-                    len(keyFlag.get('SUSlastSents').split(' & ')) if keyFlag.get('SUSlastSents') else 0  == 1:
-                logline(number=number, assigned_code='SUS', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        location='Abstract',
-                        keyword_scanned=keyFlag["SUS1stThree"] if keyFlag.get('SUS1stThree') else ''
-                                        + keyFlag["SUSlastSents"] if keyFlag.get('SUSlastSents') else '' ,
-                        )
-                self.codeWeight = 6
-                self.code = 'SUS'
-            # elif len(keyFlag.get('IND1stThree').split(' & ')) if keyFlag.get('IND1stThree') else 0 +\
-            #         len(keyFlag.get('INDlastSents').split(' & ')) if keyFlag.get('INDlastSents') else 0 >= 2:
-            #     logline(number=number, assigned_code='IND', link=self.link,
-            #             title=self.articleTitle, abstr=self.articleAbstract,
-            #             location='Abstract',
-            #             keyword_scanned=keyFlag["IND1stThree"] if keyFlag.get('IND1stThree') else ''
-            #                             + keyFlag["INDlastSents"] if keyFlag.get('INDlastSents') else '' ,
-            #             )
-            #     self.codeWeight = 7
-            #     self.code = 'IND'
-            # elif len(keyFlag.get('IND1stThree').split(' & '))  if keyFlag.get('IND1stThree') else 0 +\
-            #         len(keyFlag.get('INDlastSents').split(' & '))  if keyFlag.get('IND1stThree') else 0 == 1:
-            #     logline(number=number, assigned_code='IND', link=self.link,
-            #         title=self.articleTitle, abstr=self.articleAbstract,
-            #         location='Abstract',
-            #             keyword_scanned=keyFlag["IND1stThree"] if keyFlag.get('IND1stThree') else ''
-            #                              + keyFlag["INDlastSents"] if keyFlag.get('IND1stThree') else '',
-            #             )
-            #     self.codeWeight = 6
-            #     self.code ='IND'
-
-            else:
-                self.codeWeight = 6
-                self.code = 'ENV'
-                logline(number=number, assigned_code='ENV', link=self.link,
-                        title=self.articleTitle, abstr=self.articleAbstract,
-                        )
+                self.codeReason="No keywords found"
 
         elif queryID == '4.1':
             taglist = list()
-            # if re.search(r"\b(formation|occurrence|forms|occurs|occur)\b", AbstractTitle):
-            #     tag.append('F')
-            #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-            #             keyword_scanned=re.search(
-            #                 r"\b(formation|occurrence|forms|occurs|occur)\b",
-            #                 AbstractTitle).group(0), flags='NP-F', location='Title+Abstract')
 
-            # if re.search(r"\b(manufacturing|manufacture|production|produces|produce)\b", AbstractTitle):
-            #     tag.append('M')
-            #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-            #             keyword_scanned=re.search(
-            #                 r"\b(manufacturing|manufacture|production|produces|produce)\b",
-            #                 AbstractTitle).group(0), flags='NP-M', location='Title+Abstract')
-            #
-            # if re.search(r"\b(consumption|consumer|consumed)\b", AbstractTitle):
-            #     tag.append('C')
-            #     logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-            #             keyword_scanned=re.search(
-            #                 r"\b(consumption|consumer|consumed)\b",
-            #                 AbstractTitle).group(0), flags='NP-C', location='Title+Abstract')
             def tagger(regexpr, tag):
                 if re.search(regexpr, AbstractTitleMod):
                     taglist.append(tag)
@@ -856,66 +1006,58 @@ class JournalArticle(object):
                          r"biodegrade|bio-degrade)\b", 'D')
 
             self.code = 'NP' + ' ' + ', '.join(taglist)
-            self.codeWeight = 6
+            self.codeWeight = 7
 
-            def flag41_checker(regexp, flagstr='', wgtadd=0):
-                for sentence in sentenceList:
-                    if re.search(regexp, sentence) \
-                            and ((float(re.search(regexp, sentence).group(1)) < 500) if flagstr == 'SIZ' else True):   # including condition for SIZ flag
+        if self.LVL and queryID != '2.1': self.weight += 1
+        if self.CTX: self.weight += 0
+        if self.REV: self.weight += 1 if queryID == '4.1' else 2
 
-                        logline(number=number, link=self.link, title=self.articleTitle, abstr=self.articleAbstract,
-                                keyword_scanned=re.search(regexp, sentence).group(0),
-                                flags=flagstr, location='Title+Abstract')
-                        self.weight+=wgtadd
-                        return flagstr
-                return ''
+        if queryID == '3.1':
 
-            self.SIZ = flag41_checker(r"\b(\d{1,3}(\.\d)*)[ ]?nm\b", wgtadd=1, flagstr='SIZ')
+            '''if "ETX" in [self.code1, self.code2 or self.code3 or self.code4 or self.code5]:
+                self.code = 'ETX'
+                self.codeWeight = 10
 
-            self.INC = flag41_checker(
-                    r"(\b(incidental(ly)?|unintended|accidental(ly)?|combustion|engine[s]?|vehicle[s]?|ash[es]?) ((.)+ )?"
-                    r"(nanoparticle[s]?|particle[s]?|NPs|nano)\b)|(\b(coal[- ]derived) ((.)+ )?"
-                    r"(nanoparticle[s]?|NP[s]?|nano|particle[s]?|particulate[ ]matter)\b)",
-                    wgtadd=5, flagstr='INC')
+            elif "SUS" in [self.code1, self.code2 or self.code3 or self.code4 or self.code5]:
+                self.code='SUS'
+                self.codeWeight = 9
 
-            self.NAT = flag41_checker(
-                    r"(\b(natural(ly[ ]occurring)?) ((.)+ )?(nanoparticle[s]?|particle[s]?|NPs|nano)\b)|"
-                    r"(\bmimic[s]?|biomimetic[s]?|biomimicry\b)",
-                    wgtadd=5, flagstr='NAT')
+            else:
+                self.code='ENV'
+                self.codeWeight = 7'''
 
-            self.ENG = flag41_checker(
-                    r"(\b(preparation|manmade|engineered|produce[sd]?|production|manufacture|manufacturing|manufactured|"
-                    r"fabrication|fabricated|prepared|preparing|designed|design|designing|synthesized|"
-                    r"synthesis|synthesize) ((.)+ )?(nanoparticle[s]?|particle[s]?|NPs|nano.+)\b)|"
-                    r"(\b(nanoparticle[s]?|particle[s]?|NP[s]?|nano) ((.)+ )?(design|fabrication)\b)",
-                    wgtadd=0 if (self.INC or self.NAT) else -1000, flagstr='ENG')
+            if not self.code1: self.code1 = "ENV"
+            if not self.code2: self.code2 = "ENV"
+            if not self.code3: self.code3 = "ENV"
+            if not self.code4: self.code4 = "ENV"
+            if not self.code5: self.code5 = "ENV"
+            self.codeWeight = 0
 
-        # since exp is checked in every sentence
-        # if self.EXP:
-        #     self.weight += (2 if queryID != '4.1' else 0)
 
-        # if self.EXP:
-        #     self.weight = 0
+        elif queryID == '4.1':
 
-        # self.LR = ''
-        # if self.weight == 0:
-        #     self.LR = 'LR'
-        #     self.weight -= 1
+            if self.INC: self.weight += 2
+            if self.NAT: self.weight += 2
+            if self.SIZ: self.weight += 3
+
 
         if not self.NR:
             self.SecondaryWeight = self.PrimaryWeight = self.codeWeight + self.weight
-            if self.SecondaryWeight < 0:
-                self.SecondaryWeight = self.PrimaryWeight = 0
+        #     if self.SecondaryWeight < 0:
+        #         self.SecondaryWeight = self.PrimaryWeight = 0
 
-        elif self.NR:
+        if self.NR:
             self.SecondaryWeight = self.codeWeight + self.weight
             self.PrimaryWeight = 0
+
+
+
 
         if noMQ:
             self.NR = 'NR'
             self.SecondaryWeight = self.PrimaryWeight = 0
 
-        if self.TR:
+        if self.TR or self.ENG:
             self.SecondaryWeight = self.PrimaryWeight = 0
 
     def __str__(self):

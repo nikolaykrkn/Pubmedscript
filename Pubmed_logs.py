@@ -3,7 +3,7 @@ import os
 
 def logline(number='', assigned_code='', link='', title='', abstr='', location='', keyword_scanned='', flags=''):
 
-    logfilename='log_keywords_codeautomation_0.txt'
+    logfilename='log_keywords_codeautomation_08.txt'
     log = codecs.open(logfilename, 'a', encoding='utf-8')
 
     #print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(number, assigned_code, link, title, abstr,
