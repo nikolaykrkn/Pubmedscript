@@ -336,7 +336,7 @@ class JournalArticle(object):
 
         # doi
 
-        driver=webdriver.PhantomJS(executable_path='../selenium/webdriver/phantomJS.exe')
+        driver=webdriver.PhantomJS(executable_path='phantomJS.exe')
         driver.implicitly_wait(2)
 
         self.doi = get_xml_prop('./PubmedData/ArticleIdList/ArticleId[@IdType="doi"]')

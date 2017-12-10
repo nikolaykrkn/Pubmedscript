@@ -16,7 +16,6 @@ import codecs
 import xlwt
 # import Codeautomation
 import xml.etree.ElementTree as ET
-from nltk import tokenize
 
 from Pubmed_Article_Object import JournalArticle
 
@@ -54,15 +53,15 @@ monthAccess = date.today().month
 resultsToLog = xlwt.Workbook(encoding='UTF-8')
 query = resultsToLog.add_sheet('metaquery results')
 
-xml_file_name = input('Enter PubMed xml export file name\n(file must be in the same folder as the executable): ')
-#xml_file_name = 'BPA_21.xml'
+xml_file_name = input('Enter PubMed xml export file name (file must be in the same folder as Pubmed script file): ')
 tree = ET.parse(xml_file_name)
 root = tree.getroot()
 
+start_results = int(input("Enter how many results you want to skip: "))
 results = 0
 
 for article_xml in root.findall('PubmedArticle'):
-    #if results >= 1088:
+    if results >= start_results:
 
         art = JournalArticle(article_xml, queryID, Substance, results, xml_file_name)
 
@@ -105,6 +104,6 @@ for article_xml in root.findall('PubmedArticle'):
         resultsToLog.save(
                 "output/result_pubmed" + str(monthAccess) + str(dayAccess) + queryID.replace('.','_') + ".xls")
 
-        results += 1
+    results += 1
 
 
