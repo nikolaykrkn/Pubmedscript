@@ -102,7 +102,7 @@ for article_xml in root.findall('PubmedArticle'):
             n += 1
 
         resultsToLog.save(
-                "output/result_pubmed" + str(monthAccess) + str(dayAccess) + queryID.replace('.','_') + ".xls")
+                "result_pubmed" + str(monthAccess) + str(dayAccess) + queryID.replace('.','_') + ".xls")
 
     results += 1
 

@@ -786,16 +786,16 @@ class JournalArticle(object):
                     sentence = re.sub(r'emission|emitted', '', sentence)
 
                 if re.findall(INC_A, sentence) and re.findall(INC_B, sentence):
-                    self.INCkey += flag_key_word(INC_A, INC_B)
+                    self.INCkey += flag_key_word('', INC_A, INC_B)
                     self.INC = "INC"
 
                 if re.findall(NAT_dir, sentence):
                     self.NAT = "NAT"
-                    self.NATkey += flag_key_word(NAT_A, NAT_B)
+                    self.NATkey += flag_key_word('', NAT_A, NAT_B)
 
                 if re.findall(ENG_A, sentence) and re.findall(ENG_B, sentence):
                     self.ENG = "ENG"
-                    self.ENGkey += flag_key_word(ENG_A, ENG_B)
+                    self.ENGkey += flag_key_word('', ENG_A, ENG_B)
 
                 if re.findall(SIZ_A, sentence):
                     self.SIZkey += "[" + ', '.join(re.findall(SIZ_A, sentence)) + "] "
